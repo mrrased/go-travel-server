@@ -1,10 +1,13 @@
-const express = require('express')
-const app = express()
-const cors = require('cors')
+const express = require('express');
+const app = express();
+const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');
-require('dotenv').config()
-const port = process.env.PORT || 5000
-const fileUpload = require('express-fileupload')
+require('dotenv').config();
+const jwt = require('jsonwebtoken');
+const port = process.env.PORT || 5000;
+const fileUpload = require('express-fileupload');
+const sharp = require('sharp');
+
 
 
 app.get('/', (req, res) => res.send('Go travel!'))
@@ -18,19 +21,31 @@ app.use(fileUpload());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.zingp.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
+function verifyJWT(req, res, next){
+
+  const authHeader = req.headers.authorization;
+  if(!authHeader){
+    return res.status (401).send('unauthorized access');
+  }
+  const token = authHeader.split(' ')[1];
+  jwt.verify(token, process.env.ACCESS_TOKEN, function(err, decoded){
+    if(err){
+      return res.status(403).send({message: 'forbidden access'})
+    }
+    req.decoded = decoded;
+    next();
+  })
+}
+
 async function run() {
   try {
     // await client.connect();
-    const database = client.db("insertDB");
-    const haiku = database.collection("haiku");
-    // create a document to insert
-    // const doc = {
-    //   title: "Record of a Shriveled Datum",
-    //   content: "No bytes, no problem. Just insert a document, in MongoDB",
-    // }
-    // const result = await haiku.insertOne(doc);
-    // console.log(`A document was inserted with the _id: ${result.insertedId}`);
-
+    const database = client.db("go-travel");
+    const serviceDataCollection = database.collection("serviceList");
+    const userCollection = database.collection("users");
+    
+    // create a user booking service list
+    
     app.post('/booking', async(req, res)=>{
 
       const date = req.body.date;
@@ -51,12 +66,60 @@ async function run() {
       const airplaneNumber = req.body.airplaneNumber;
       const weight = req.body.weight;
       const nextFlightAirPortName = req.body.nextFlightAirPortName;
-      const img = req.files.image.data.toString('base64');
-      const imageBuffer = Buffer.from(img, 'base64');
+      const imgData = req.files.image.data;
+      
 
-      console.log(img);
+      sharp(imgData).resize(200, 200).png().toBuffer().then(async(data)=>{
+        
+        const encodedImg = data.toString('base64');
+        const imageBuffer = Buffer.from(encodedImg, 'base64');
+        const serviceData = {
+          date, serviceKey, planeName, month, time, area, hour, stops, operate, price, airPort, nextDay,
+          tmp, passengerClass, flightNumber, airplaneNumber, weight, nextFlightAirPortName, img:imageBuffer 
+        }
+
+        const result = await serviceDataCollection.insertOne(serviceData);
+        res.json(result);
+      })
+    });
+
+    // booking data get
+    app.get('/booking', verifyJWT,  async(req, res)=>{
+      const email = req.query.email;
+      const decodedEmail = req.decoded.email;
+      
+      if(email !== decodedEmail){
+        return res.status(403).send({message: 'forbidden access'});
+      }
+      const query = {email: email};
+      const bookings = await serviceDataCollection.find(query).toArray();
+      res.send(bookings);
     })
-    console.log('inside function',uri);
+
+    app.get('/jwt', async(req, res)=>{
+      const email = req.query.email;
+      const query = {email: email};
+      const user = await userCollection.findOne(query);
+      if(user){
+        const token = jwt.sign({email}, process.env.ACCESS_TOKEN, {expiresIn: '1h'})
+        return res.send({ accessToken: token })
+      }
+      res.status(403).send({ accessToken: '' })
+    })
+
+    // create users post data route
+    app.post('/users', async(req, res)=>{
+
+      const displayName = req.body.displayName;
+      const email = req.body.email;
+      const usersData = {
+        displayName, email
+      }
+      const result = await userCollection.insertOne(usersData);
+      res.json(result);
+    }) 
+
+    // console.log('inside function',uri);
   } finally {
     // await client.close();
   }

@@ -4,12 +4,13 @@
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "express-fileupload": "^1.4.0",
-    "mongodb": "^4.13.0"
+    "jsonwebtoken": "^9.0.0",
+    "mongodb": "^4.13.0",
+    "sharp": "^0.31.3"
   },
   "name": "go-travel-server",
   "version": "1.0.0",
   "main": "index.js",
-  "devDependencies": {},
   "scripts": {
     "start": "node index.js",
     "start-dev": "nodemon index.js",
