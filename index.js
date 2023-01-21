@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
 const fileUpload = require('express-fileupload');
 const sharp = require('sharp');
+const bodyParser = require('body-parser')
 
 
 
@@ -17,6 +18,7 @@ app.get('/', (req, res) => res.send('Go travel!'))
 app.use(cors());
 app.use(express.json())
 app.use(fileUpload());
+app.use(bodyParser.json())
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.zingp.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
@@ -24,6 +26,7 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 function verifyJWT(req, res, next){
 
   const authHeader = req.headers.authorization;
+  console.log('authHeader', authHeader);
   if(!authHeader){
     return res.status (401).send('unauthorized access');
   }
@@ -98,6 +101,7 @@ async function run() {
 
     app.get('/jwt', async(req, res)=>{
       const email = req.query.email;
+      console.log(email);
       const query = {email: email};
       const user = await userCollection.findOne(query);
       if(user){
@@ -118,6 +122,36 @@ async function run() {
       const result = await userCollection.insertOne(usersData);
       res.json(result);
     }) 
+
+    // make role area
+    app.put('/users/admin', verifyJWT, async(req, res)=>{
+
+      const decodedEmail = req.decoded.email;
+      console.log('decoded Email',decodedEmail);
+      const query = {email: decodedEmail};
+      const user = await userCollection.findOne(query);
+      console.log('find User',user);
+      if( user.role !== 'admin'){
+
+        return res.status(403).send({ message: 'forbidden access' })
+      }
+
+      const users = req.body;
+      console.log(users);
+      const role = req.body.jobPosition;
+      const filter = {email: users.email};
+      const updateDoc = {
+        $set: {
+          
+          lastName: users.lastName, 
+          role: role,
+          number: users.number
+         
+        }};
+        console.log(updateDoc);
+      const result = await userCollection.updateOne(filter, updateDoc);
+      res.json(result);
+    })
 
     // console.log('inside function',uri);
   } finally {
