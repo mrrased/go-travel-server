@@ -46,6 +46,7 @@ async function run() {
     const database = client.db("go-travel");
     const serviceDataCollection = database.collection("serviceList");
     const userCollection = database.collection("users");
+    const userMessageCollection = database.collection("message");
     
     // create a user booking service list
     
@@ -86,6 +87,49 @@ async function run() {
       })
     });
 
+    // create users post data route
+    app.post('/users', async(req, res)=>{
+
+      const displayName = req.body.displayName;
+      const email = req.body.email;
+      const usersData = {
+        displayName, email
+      }
+      const result = await userCollection.insertOne(usersData);
+      res.json(result);
+    }) 
+
+
+    // make role area
+    app.put('/users/admin', verifyJWT, async(req, res)=>{
+
+      const decodedEmail = req.decoded.email;
+      const query = {email: decodedEmail};
+      const user = await userCollection.findOne(query);
+      
+      if( user.role !== 'admin'){
+
+        return res.status(403).send({ message: 'forbidden access' })
+      }
+
+      const users = req.body;
+      const role = req.body.jobPosition;
+      const filter = {email: users.email};
+      
+      const updateDoc = {
+        $set: {
+          
+          lastName: users.lastName, 
+          role: role,
+          number: users.number
+         
+        }};
+        
+      const result = await userCollection.updateOne(filter, updateDoc);
+      res.json(result);
+    });
+
+
     // booking data get
     app.get('/booking', verifyJWT,  async(req, res)=>{
       const email = req.query.email;
@@ -111,48 +155,7 @@ async function run() {
       res.status(403).send({ accessToken: '' })
     })
 
-    // create users post data route
-    app.post('/users', async(req, res)=>{
-
-      const displayName = req.body.displayName;
-      const email = req.body.email;
-      const usersData = {
-        displayName, email
-      }
-      const result = await userCollection.insertOne(usersData);
-      res.json(result);
-    }) 
-
-    // make role area
-    app.put('/users/admin', verifyJWT, async(req, res)=>{
-
-      const decodedEmail = req.decoded.email;
-      
-      const query = {email: decodedEmail};
-      const user = await userCollection.findOne(query);
-      
-      if( user.role !== 'admin'){
-
-        return res.status(403).send({ message: 'forbidden access' })
-      }
-
-      const users = req.body;
-      // console.log(users);
-      const role = req.body.jobPosition;
-      const filter = {email: users.email};
-      const updateDoc = {
-        $set: {
-          
-          lastName: users.lastName, 
-          role: role,
-          number: users.number
-         
-        }};
-        
-      const result = await userCollection.updateOne(filter, updateDoc);
-      res.json(result);
-    });
-
+    
 
     app.get('/users/:email', async(req, res)=>{
       const email = req.params.email;
@@ -171,12 +174,24 @@ async function run() {
       res.json(usersInfo);
     });
 
-    app.get('/users/role/', async(req, res)=>{
-      
-      res.json('send role')
+    
+    // console.log('inside function',uri);
+
+    app.post('/users/message', async(req, res)=>{
+
+      const name = req.body.name;
+      const email = req.body.email;
+      const subject = req.body.subject;
+      const number = req.body.number;
+      const messages = req.body.messages;
+      const messageData = {
+        name, email, subject, number, messages
+      }
+      console.log('working this', messageData )
+      const result = await userMessageCollection.insertOne(messageData);
+      res.json(result);
     })
 
-    // console.log('inside function',uri);
   } finally {
     // await client.close();
   }
