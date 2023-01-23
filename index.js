@@ -26,7 +26,7 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 function verifyJWT(req, res, next){
 
   const authHeader = req.headers.authorization;
-  console.log('authHeader', authHeader);
+  
   if(!authHeader){
     return res.status (401).send('unauthorized access');
   }
@@ -101,7 +101,7 @@ async function run() {
 
     app.get('/jwt', async(req, res)=>{
       const email = req.query.email;
-      console.log(email);
+      
       const query = {email: email};
       const user = await userCollection.findOne(query);
       if(user){
@@ -127,17 +127,17 @@ async function run() {
     app.put('/users/admin', verifyJWT, async(req, res)=>{
 
       const decodedEmail = req.decoded.email;
-      console.log('decoded Email',decodedEmail);
+      
       const query = {email: decodedEmail};
       const user = await userCollection.findOne(query);
-      console.log('find User',user);
+      
       if( user.role !== 'admin'){
 
         return res.status(403).send({ message: 'forbidden access' })
       }
 
       const users = req.body;
-      console.log(users);
+      // console.log(users);
       const role = req.body.jobPosition;
       const filter = {email: users.email};
       const updateDoc = {
@@ -148,9 +148,32 @@ async function run() {
           number: users.number
          
         }};
-        console.log(updateDoc);
+        
       const result = await userCollection.updateOne(filter, updateDoc);
       res.json(result);
+    });
+
+
+    app.get('/users/:email', async(req, res)=>{
+      const email = req.params.email;
+      
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+
+      let isRole = false;
+      
+      if(user?.role){
+
+        isRole = true;
+      }
+      const usersInfo = {isRole: isRole, role: user?.role} 
+      
+      res.json(usersInfo);
+    });
+
+    app.get('/users/role/', async(req, res)=>{
+      
+      res.json('send role')
     })
 
     // console.log('inside function',uri);
