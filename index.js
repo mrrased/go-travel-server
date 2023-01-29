@@ -23,19 +23,29 @@ app.use(bodyParser.json())
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.zingp.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
+
+
 function verifyJWT(req, res, next){
 
   const authHeader = req.headers.authorization;
+
+  console.log(authHeader);
   
   if(!authHeader){
+    console.log('what is problem');
+
     return res.status (401).send('unauthorized access');
+
   }
   const token = authHeader.split(' ')[1];
+  console.log(token);
   jwt.verify(token, process.env.ACCESS_TOKEN, function(err, decoded){
+
     if(err){
       return res.status(403).send({message: 'forbidden access'})
     }
     req.decoded = decoded;
+
     next();
   })
 }
@@ -99,6 +109,20 @@ async function run() {
       res.json(result);
     }) 
 
+    app.post('/user/conatact', async(req, res)=>{
+
+      const name = req.body.name;
+      const email = req.body.email;
+      const subject = req.body.subject;
+      const number = req.body.number;
+      const messages = req.body.messages;
+      const messageData = {
+        name, email, subject, number, messages
+      }
+      
+      const result = await userMessageCollection.insertOne(messageData);
+      res.json(result);
+    })
 
     // make role area
     app.put('/users/admin', verifyJWT, async(req, res)=>{
@@ -131,7 +155,7 @@ async function run() {
 
 
     // booking data get
-    app.get('/booking', verifyJWT,  async(req, res)=>{
+    app.get('/booking/:email', verifyJWT, async(req, res)=>{
       const email = req.query.email;
       const decodedEmail = req.decoded.email;
       
@@ -143,20 +167,23 @@ async function run() {
       res.send(bookings);
     })
 
+
     app.get('/jwt', async(req, res)=>{
       const email = req.query.email;
       
       const query = {email: email};
       const user = await userCollection.findOne(query);
+
       if(user){
-        const token = jwt.sign({email}, process.env.ACCESS_TOKEN, {expiresIn: '1h'})
+        const token = jwt.sign({email}, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
         return res.send({ accessToken: token })
       }
+
       res.status(403).send({ accessToken: '' })
     })
 
     
-
+    //get access role verify
     app.get('/users/:email', async(req, res)=>{
       const email = req.params.email;
       
@@ -169,28 +196,20 @@ async function run() {
 
         isRole = true;
       }
-      const usersInfo = {isRole: isRole, role: user?.role} 
+      const usersInfo = { isRole: isRole, role: user?.role }
       
       res.json(usersInfo);
     });
 
-    
-    // console.log('inside function',uri);
 
-    app.post('/users/message', async(req, res)=>{
 
-      const name = req.body.name;
-      const email = req.body.email;
-      const subject = req.body.subject;
-      const number = req.body.number;
-      const messages = req.body.messages;
-      const messageData = {
-        name, email, subject, number, messages
-      }
-      console.log('working this', messageData )
-      const result = await userMessageCollection.insertOne(messageData);
+    app.get('/user/contact',  async(req, res)=>{
+
+      const result = await userMessageCollection.find([{ $project : { _id : 0 , name : 1 } } ])
       res.json(result);
     })
+
+    
 
   } finally {
     // await client.close();
