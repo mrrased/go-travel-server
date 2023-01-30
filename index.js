@@ -205,8 +205,16 @@ async function run() {
 
     app.get('/user/contact',  async(req, res)=>{
 
-      const result = await userMessageCollection.find([{ $project : { _id : 0 , name : 1 } } ])
-      res.json(result);
+      // const result = await userMessageCollection.find({}).count().toArray();
+      // const j = await userMessageCollection.aggregate([{ $project: { name: 1  }}])
+      const count = await userMessageCollection.countDocuments({})
+      res.json(count);
+    })
+
+    app.get('/user/contact/message', async(req, res)=>{
+
+      const onlyName = await userMessageCollection.aggregate([{ $project: { name: 1  }}]).toArray()
+      res.json(onlyName);
     })
 
     
