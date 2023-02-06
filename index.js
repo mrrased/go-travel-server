@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');
+const ObjectId = require('mongodb').ObjectId;
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
@@ -38,7 +39,7 @@ function verifyJWT(req, res, next){
 
   }
   const token = authHeader.split(' ')[1];
-  console.log(token);
+  // console.log(token);
   jwt.verify(token, process.env.ACCESS_TOKEN, function(err, decoded){
 
     if(err){
@@ -57,6 +58,7 @@ async function run() {
     const serviceDataCollection = database.collection("serviceList");
     const userCollection = database.collection("users");
     const userMessageCollection = database.collection("message");
+    const seenMessageCollection = database.collection("seen");
     
     // create a user booking service list
     
@@ -109,6 +111,9 @@ async function run() {
       res.json(result);
     }) 
 
+
+
+
     app.post('/user/conatact', async(req, res)=>{
 
       const name = req.body.name;
@@ -116,13 +121,87 @@ async function run() {
       const subject = req.body.subject;
       const number = req.body.number;
       const messages = req.body.messages;
+      const date = req.body.date;
+    
       const messageData = {
-        name, email, subject, number, messages
+        name, email, subject, number, messages, seen:'unseen', date
       }
       
       const result = await userMessageCollection.insertOne(messageData);
       res.json(result);
     })
+
+
+
+
+
+    // post users message seen data 
+    app.put('/seen', async(req, res, next)=>{
+      try{
+        const id = req.body._id;
+        const name = req.body.name;
+        const email = req.body.email;
+        const subject = req.body.subject;
+        const number = req.body.number;
+        const messages = req.body.messages;
+
+        const query = { email: email};
+        const options = { upsert: true };
+        const find = await userMessageCollection.findOne(query);
+        console.log(find.seen);
+        if(find && find.seen !== 'seen'){
+          console.log('inside condition');
+          const updateDoc = {
+            $set: {
+              seen: 'seen'
+            },
+          };
+
+          const addProperty = await userMessageCollection.updateOne(query, updateDoc, options)
+        }
+        else{
+
+          // const querys = { _id: ObjectId(id) }
+          // const exist = await userMessageCollection.deleteOne(querys);
+          res.send({ message: 'Not Found '});
+
+        }
+        
+        // if(!find){
+
+        //   console.log('find not fund')
+
+        //   const messageData = {
+        //     name, email, subject, number, messages
+        //   }
+
+        //   const result = await seenMessageCollection.insertOne(messageData)
+        //   console.log('inserted ducoment success')
+        //   // res.json(result);
+
+        //   const querys = { _id: ObjectId(id) }
+        //   const findUser = await userMessageCollection.deleteOne(querys)
+
+        //   if (findUser?.deletedCount === 1) {
+        //     console.log("Successfully deleted one document.");
+        //   } else {
+        //     console.log("No documents matched the query. Deleted 0 documents.");
+        //   }
+
+        //   res.json(result);
+        // }
+        
+      }catch (err) {
+        console.log(err);
+        next(err)
+      }
+      
+    })
+
+
+
+
+
 
     // make role area
     app.put('/users/admin', verifyJWT, async(req, res)=>{
@@ -139,6 +218,7 @@ async function run() {
       const users = req.body;
       const role = req.body.jobPosition;
       const filter = {email: users.email};
+      const options = { upsert: true };
       
       const updateDoc = {
         $set: {
@@ -149,9 +229,20 @@ async function run() {
          
         }};
         
-      const result = await userCollection.updateOne(filter, updateDoc);
+      const result = await userCollection.updateOne(filter, updateDoc, options);
       res.json(result);
     });
+
+
+
+
+    app.post('/remove', async(req, res)=>{
+
+        console.log(req.body);
+
+    })
+
+
 
 
     // booking data get
@@ -168,6 +259,9 @@ async function run() {
     })
 
 
+
+
+
     app.get('/jwt', async(req, res)=>{
       const email = req.query.email;
       
@@ -181,6 +275,9 @@ async function run() {
 
       res.status(403).send({ accessToken: '' })
     })
+
+
+
 
     
     //get access role verify
@@ -203,21 +300,48 @@ async function run() {
 
 
 
+
+
     app.get('/user/contact',  async(req, res)=>{
 
-      // const result = await userMessageCollection.find({}).count().toArray();
       // const j = await userMessageCollection.aggregate([{ $project: { name: 1  }}])
+      const query = { seen: "unseen" };
+      const options = {
+
+        projection: { _id: 0, seen: 1 },
+        
+      };
+
+      const find = await userMessageCollection.find(query, options).toArray();
+      
       const count = await userMessageCollection.countDocuments({})
-      res.json(count);
+      res.json(find);
     })
+
+
+
 
     app.get('/user/contact/message', async(req, res)=>{
 
-      const onlyName = await userMessageCollection.aggregate([{ $project: { name: 1  }}]).toArray()
+      const onlyName = await userMessageCollection.aggregate([{ $project: { name: 1  , messages: 1, seen: 1, date: 1}}]).toArray()
       res.json(onlyName);
     })
 
+
+
+
+    app.get('/singleView/:id',  async(req, res)=>{
+      
+      const id = req.params.id;
+      
+      const query = { _id: ObjectId(id) };
+      const singleIfo = await userMessageCollection.findOne(query);
+      
+      res.json(singleIfo);
+    })
     
+
+
 
   } finally {
     // await client.close();
