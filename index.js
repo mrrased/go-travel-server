@@ -29,10 +29,10 @@ const client = new MongoClient(uri, {
 function verifyJWT(req, res, next) {
   const authHeader = req.headers.authorization;
 
-  console.log(authHeader);
+  // console.log(authHeader);
 
   if (!authHeader) {
-    console.log("what is problem");
+    // console.log("what is problem");
 
     return res.status(401).send("unauthorized access");
   }
@@ -205,7 +205,7 @@ async function run() {
         //   res.json(result);
         // }
       } catch (err) {
-        console.log(err);
+        // console.log(err);
         next(err);
       }
     });
@@ -319,6 +319,6 @@ async function run() {
     // await client.close();
   }
 }
-run().catch(console.dir);
+run().catch(dir);
 
 app.listen(port, () => `listening on port ${port}!`);
